@@ -1,17 +1,18 @@
 from boto3sts import credentials as creds
 import boto3
 import subprocess
+import configparser
+import logging 
 
 
-
-def get_names() :
+def get_names(OIDC_PROFILE_NAME,ENDPOINT_URL) :
 
     '''This functions returns the names of the buckets with cvmfs/ area and the credentials needed to download their content  '''
     
     #Getting refreshble credentials session
-    credentials = creds.s3_session_credentials("infncloud", endpoint="https://minio.cloud.infn.it/", verify=True)
-    aws_session = creds.assumed_session("infncloud")
-    s3 = aws_session.client('s3', endpoint_url="https://minio.cloud.infn.it/", 
+    credentials = creds.s3_session_credentials(OIDC_PROFILE_NAME, endpoint=ENDPOINT_URL, verify=True)
+    aws_session = creds.assumed_session(OIDC_PROFILE_NAME)
+    s3 = aws_session.client('s3', endpoint_url=ENDPOINT_URL, 
                                 config=boto3.session.Config(signature_version='s3v4'),
                                 verify=True)
 
@@ -33,12 +34,11 @@ def transaction(bucket):
     cmd = 'cvmfs_server transaction %s.infn.it'  %bucket   
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-	    raise Exception( f'Unable to start transaction: { p.returncode }' )
-        #return #Intead of raise an error try to store the message in a log file for that repo and continue with the sync of the others
+	    return False 
+    return True 
+        
 
-
-
-def sync_repo(credentials,bucket):
+def sync_repo(credentials,bucket,HOST):
 
     '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
 
@@ -46,11 +46,10 @@ def sync_repo(credentials,bucket):
     SECRET_KEY = credentials["secret_key"]
     TOKEN = credentials["token"]
 
-    cmd = 's3cmd --access_key=%s --secret_key=%s --access_token=%s --host=minio.cloud.infn.it --host-bucket=minio.cloud.infn.it sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,ACCESS_KEY,SECRET_KEY,TOKEN,bucket,bucket)
+    cmd = 's3cmd --access_key=%s --secret_key=%s --access_token=%s --host=%s --host-bucket=%s sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,ACCESS_KEY,SECRET_KEY,TOKEN,HOST,HOST,bucket,bucket)
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-	    raise Exception( f'Error in sync: { p.returncode }' )
-        #return 
+	    logging.warning('Synchronization not succeded')
 
 
 def publish(bucket):
@@ -58,22 +57,37 @@ def publish(bucket):
     cmd= 'cvmfs_server publish %s.infn.it' %bucket
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-        print('Unable to publish, aborting transaction..')
-        cmd='cvmfs_server abort -f gmalatesta.infn.it'
+        logging.warning('Unable to publish, aborting transaction..')
+        cmd='cvmfs_server abort -f %s.infn.it' %bucket
         p=subprocess.run(cmd, shell=True)
         if p.returncode != 0:
-    	    raise Exception( f'Unable to abort: { p.returncode }' )
+    	    logging.error('Unable to abort, the repo remains in transaction')
         
 
 
 
 if __name__ == '__main__' :
 
+    config = configparser.ConfigParser()
+    config.read('cvmfs.cfg')
+
+    OIDC_PROFILE_NAME = config.get('database','OIDC_PROFILE_NAME')
+    ENDPOINT_URL = config.get('database','ENDPOINT_URL')
+    USER_NAME = config.get('database','USER_NAME')
+    HOST = config.get('database','HOST')
+
+
     #Get buckets names 
-    bkt_names,credentials=get_names()
+    bkt_names,credentials=get_names(OIDC_PROFILE_NAME,ENDPOINT_URL)
 
     #Sync alle the repo in cvmfs stratum-0 with the s3 buckets and publish the changes 
     for bkt in bkt_names:
-        transaction(bkt)
-        sync_repo(credentials,bkt)
-        publish(bkt)
+        logging.basicConfig(filename="/home/ubuntu/logs_cvmfs/%s.log", filemode="w", format="%(asctime)s - %(levelname)s : %(message)s") %bkt
+        tr=transaction(bkt)
+        if tr==False:
+            logging.error('Unable to start transaction') 
+        else:
+            sync_repo(credentials,bkt,HOST)
+            publish(bkt)
+
+        
