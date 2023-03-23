@@ -1,16 +1,15 @@
 from boto3sts import credentials as creds
 import boto3
 import subprocess
-import os
-from dotenv import load_dotenv
+import configparser
 
-#Import from configuration file
-load_dotenv()
+config = configparser.ConfigParser()
+config.read('cvmfs.cfg')
 
-OIDC_PROFILE_NAME = os.getenv('OIDC_PROFILE_NAME')
-ENDPOINT_URL = os.getenv('ENDPOINT_URL')
-USER_NAME = os.getenv('USER_NAME')
-HOST = os.getenv('HOST')
+OIDC_PROFILE_NAME = config.get('OIDC_PROFILE_NAME')
+ENDPOINT_URL = config.get('ENDPOINT_URL')
+USER_NAME = config.get('USER_NAME')
+HOST = config.get('HOST')
 
 #Getting your refreshble credentials session with the oidc-agent profile named infncloud
 credentials = creds.s3_session_credentials(OIDC_PROFILE_NAME, endpoint=ENDPOINT_URL, verify=True)
