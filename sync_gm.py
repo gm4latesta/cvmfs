@@ -45,4 +45,5 @@ if p.returncode != 0:
         logging.error('Unable to abort, repo still in trasansaction')
 	    raise 
 else:
+
     logging.info('Transaction, synchronization, publication succeded')
