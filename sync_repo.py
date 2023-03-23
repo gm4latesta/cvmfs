@@ -34,7 +34,7 @@ def transaction(bucket):
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    raise Exception( f'Unable to start transaction: { p.returncode }' )
-        #return 
+        #return #Intead of raise an error try to store the message in a log file for that repo and continue with the sync of the others
 
 
 
