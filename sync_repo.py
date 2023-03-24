@@ -82,7 +82,11 @@ if __name__ == '__main__' :
 
     #Sync alle the repo in cvmfs stratum-0 with the s3 buckets and publish the changes 
     for bkt in bkt_names:
-        logging.basicConfig(filename="/home/ubuntu/logs_cvmfs/%s.log", filemode="w", format="%(asctime)s - %(levelname)s : %(message)s") %bkt
+        root_logger= logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
+        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %USER_NAME, 'w', 'utf-8') 
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        root_logger.addHandler(handler)
         tr=transaction(bkt)
         if tr==False:
             logging.error('Unable to start transaction') 
