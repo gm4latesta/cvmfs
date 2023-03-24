@@ -12,7 +12,11 @@ ENDPOINT_URL = config.get('database','ENDPOINT_URL')
 USER_NAME = config.get('database','USER_NAME')
 HOST = config.get('database','HOST')
 
-logging.basicConfig(filename="/home/ubuntu/logs_cvmfs/%s.log", filemode="w", format="%(asctime)s - %(levelname)s : %(message)s") %USER_NAME
+root_logger= logging.getLogger()
+root_logger.setLevel(logging.WARNING)
+handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %USER_NAME, 'w', 'utf-8') 
+handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+root_logger.addHandler(handler)
 
 #Getting your refreshble credentials session with the oidc-agent profile named infncloud
 credentials = creds.s3_session_credentials(OIDC_PROFILE_NAME, endpoint=ENDPOINT_URL, verify=True)
@@ -43,7 +47,6 @@ if p.returncode != 0:
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
         logging.error('Unable to abort, repo still in trasansaction')
-	    raise 
 else:
 
     logging.info('Transaction, synchronization, publication succeded')
