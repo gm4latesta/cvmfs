@@ -84,7 +84,7 @@ if __name__ == '__main__' :
     for bkt in bkt_names:
         root_logger= logging.getLogger()
         root_logger.setLevel(logging.WARNING)
-        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %USER_NAME, 'w', 'utf-8') 
+        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %USER_NAME, mode='w', encoding='utf-8', delay=True) 
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(handler)
         tr=transaction(bkt)
