@@ -36,7 +36,7 @@ if p.returncode != 0:
 cmd = 's3cmd --access_key=%s --secret_key=%s --access_token=%s --host=%s --host-bucket=%s sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (ACCESS_KEY,SECRET_KEY,TOKEN,HOST,HOST,USER_NAME,USER_NAME)
 p=subprocess.run(cmd, shell=True)
 if p.returncode != 0:
-    logging.warning('Problem in synchronizing') 
+    logging.warning('Not able to synchronize the repo') 
 
 #Publishing changes in the repo, in case of data corruption abort transaction 
 cmd= 'cvmfs_server publish %s.infn.it' %USER_NAME
