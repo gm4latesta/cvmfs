@@ -29,7 +29,7 @@ print('Starting transaction..')
 cmd = 'cvmfs_server transaction %s.infn.it' %USER_NAME
 p=subprocess.run(cmd, shell=True)
 if p.returncode != 0:
-	logging.error('Unable to start transaction')
+    logging.error('Unable to start transaction')
     raise
 
 #Downloading from the bucket only new or moidified files 
