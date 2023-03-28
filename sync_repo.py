@@ -1,3 +1,4 @@
+import time
 import boto3
 import subprocess
 import configparser
@@ -64,6 +65,8 @@ def publish(bucket):
 
 if __name__ == '__main__' :
 
+    start_time = time.time()
+
     config = configparser.ConfigParser()
     config.read('s3_cvmfs.cfg')
 
@@ -79,7 +82,7 @@ if __name__ == '__main__' :
 
     #Sync alle the repo in cvmfs stratum-0 with the s3 buckets and publish the changes 
     for bkt in bkt_names:
-        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %USER_NAME, mode='w', encoding='utf-8', delay=True) 
+        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %bkt, mode='w', encoding='utf-8', delay=True) 
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(handler)
         tr = transaction(bkt)
@@ -90,4 +93,5 @@ if __name__ == '__main__' :
             sync_repo(ACCESS_KEY,SECRET_KEY,bkt)
             publish(bkt)
 
-        
+    end_time = time.time()
+    print("Execution time:", end_time - start_time, "seconds")
