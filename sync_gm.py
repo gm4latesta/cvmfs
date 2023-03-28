@@ -5,7 +5,7 @@ import configparser
 import logging 
 
 config = configparser.ConfigParser()
-config.read('cvmfs.cfg')
+config.read('s3_cvmfs.cfg')
 
 OIDC_PROFILE_NAME = config.get('database','OIDC_PROFILE_NAME')
 ENDPOINT_URL = config.get('database','ENDPOINT_URL')
