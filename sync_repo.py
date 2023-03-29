@@ -43,7 +43,7 @@ def sync_repo(ACCESS_KEY,SECRET_KEY,bucket):
 
     '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
 
-    cmd = 's3cmd -c s3_cvmfs.cfg sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket)
+    cmd = 's3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket)
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Synchronization not succeded')
@@ -68,7 +68,7 @@ if __name__ == '__main__' :
     start_time = time.time()
 
     config = configparser.ConfigParser()
-    config.read('s3_cvmfs.cfg')
+    config.read('/home/ubuntu/s3_cvmfs.cfg')
 
     root_logger= logging.getLogger()
     root_logger.setLevel(logging.WARNING)
