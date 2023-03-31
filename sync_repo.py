@@ -39,11 +39,11 @@ def transaction(bucket):
     return True 
         
 
-def sync_repo(ACCESS_KEY,SECRET_KEY,bucket):
+def sync_repo(bucket):
 
     '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
 
-    cmd = 's3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket)
+    cmd = 's3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket)
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Synchronization not succeded')
@@ -90,7 +90,7 @@ if __name__ == '__main__' :
             logging.error('Unable to start transaction...') 
             continue
         else:
-            sync_repo(ACCESS_KEY,SECRET_KEY,bkt)
+            sync_repo(bkt)
             publish(bkt)
 
     end_time = time.time()
