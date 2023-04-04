@@ -33,7 +33,7 @@ if p.returncode != 0:
     raise
 
 #Downloading from the bucket only new or moidified files 
-cmd = 's3cmd --access_key=%s --secret_key=%s --access_token=%s --host=%s --host-bucket=%s sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (ACCESS_KEY,SECRET_KEY,TOKEN,HOST,HOST,USER_NAME,USER_NAME)
+cmd = 's3cmd --access_key=%s --secret_key=%s --access_token=%s --host=%s --host-bucket=%s sync --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (ACCESS_KEY,SECRET_KEY,TOKEN,HOST,HOST,USER_NAME,USER_NAME)
 p=subprocess.run(cmd, shell=True)
 if p.returncode != 0:
     logging.warning('Not able to synchronize the repo') 
