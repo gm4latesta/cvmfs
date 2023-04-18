@@ -45,7 +45,7 @@ def sync_repo(bucket):
 
     '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
 
-    cmd = 's3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket)
+    cmd = 's3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --delete-removed --exclude "/cvmfs/%s.infn.it/*/" s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket,bucket) 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Synchronization not succeded')
@@ -95,5 +95,35 @@ if __name__ == '__main__' :
             sync_repo(bkt)
             publish(bkt)
 
+            #Check if in the cvmfs repo there is a tarball file 
+            for entry in os.scandir('/cvmfs/%s.infn.it' %bkt) :
+
+                if entry.name.endswith('.tar') :
+
+                    #Check if the there is the correspondend configuration file and in case write the error log 
+                    if '%s_%s.cfg' % (bkt,entry.name.split('.')[0]) in os.listdir('/cvmfs/%s.infn.it' %bkt):
+                        #Check if there are the correct variables
+                        config.read('/cvmfs/%s.infn.it/%s_%s.cfg' % (bkt,bkt,entry.name.split('.')[0]))
+                        try:
+                            publish = config.get('default','publish')
+                            base_dir = config.get('default','base_dir')
+                            #Check if the software need to be distributed 
+                            if publish == 'yes':
+                                #Check if it is not already been distributed 
+                                if '%s/' %entry.name.split('.')[0] not in  os.listdir('/cvmfs/%s.infn.it' %bkt) :
+                                    #Distribute the software using the native function of cvmfs (cvmfs_server ingest)
+                                    cmd='cvmfs_server ingest --tar_file /cvmfs/%s.infn.it/%s --base_dir %s/ %s.infn.it' %(bkt,entry.name,base_dir,bkt)
+                                    p=subprocess.run(cmd, shell=True)
+                                    if p.returncode != 0:
+                                        logging.error('Unable to publish the server %s' %entry.name )
+
+                        except Exception as ex:
+                            logging.warning(ex)
+                            logging.warning('Some configuration info for %s_%s.cfg file are missing' %(bkt,entry.name.split('.')[0]) )
+                    
+                    else:
+                        logging.warning('The configuration file for the tarball %s is missing, please write %s_%s.cfg to manage the tarball' %(entry.name,bkt,entry.name.split('.')[0]))
+            
+         
     end_time = time.time()
     print("Execution time:", end_time - start_time, "seconds")
