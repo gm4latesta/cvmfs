@@ -5,6 +5,7 @@ import boto3
 import subprocess
 import configparser
 import logging 
+import os 
 
 
 def get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL) :
@@ -33,7 +34,7 @@ def transaction(bucket):
 
     '''This function starts a transaction in the repositery in stratum-0'''
 
-    print('Starting transaction...')
+    print('Starting transaction for %s.infn.it repository...' %bucket)
     cmd = 'cvmfs_server transaction %s.infn.it'  %bucket   
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
@@ -45,13 +46,16 @@ def sync_repo(bucket):
 
     '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
 
-    cmd = 's3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --delete-removed --exclude "/cvmfs/%s.infn.it/*/" s3://%s/cvmfs/ /cvmfs/%s.infn.it/' % (bucket,bucket,bucket) 
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --delete-removed --exclude '/cvmfs/%s.infn.it/*/' s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket,bucket) 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Synchronization not succeded')
 
 
 def publish(bucket):
+
+    '''This function publishes (closes a transaction) in the repositery, in case of some errors (e.g. data corruption)
+        it aborts the transaction'''
 
     cmd= 'cvmfs_server publish %s.infn.it' %bucket
     p=subprocess.run(cmd, shell=True)
@@ -62,6 +66,46 @@ def publish(bucket):
         if p.returncode != 0:
     	    logging.error('Unable to abort, the repo remains in transaction')
         
+
+def distribute_software(bucket):
+
+    '''This function looks for a tar file in the repository and for the correspondent cfg file.
+        If the users use the value 'yes' for the variable 'publish', the software will be distributed 
+        and published in the specififed 'base_dir' variable'''
+
+    for entry in os.scandir('/cvmfs/%s.infn.it' %bucket) :
+
+        if entry.name.endswith('.tar') :
+            print(entry.name)
+            input()
+
+            if '%s_%s.cfg' % (bucket,entry.name.split('.')[0]) in os.listdir('/cvmfs/%s.infn.it' %bucket):
+                print('%s_%s.cfg' % (bucket,entry.name.split('.')[0]))
+                input()
+                config.read('/cvmfs/%s.infn.it/%s_%s.cfg' % (bucket,bucket,entry.name.split('.')[0]))
+
+                try:
+                    publish = config.get('default','publish')
+                    base_dir = config.get('default','base_dir')
+                    print(publish,base_dir)
+                    input()
+                    if publish == 'yes':
+
+                        if '%s/' %base_dir not in  os.listdir('/cvmfs/%s.infn.it' %bucket) :
+                            print('The software will be distributed..')
+                            input()
+                            cmd='cvmfs_server ingest --tar_file /cvmfs/%s.infn.it/%s --base_dir %s/ %s.infn.it' %(bucket,entry.name,base_dir,bucket)
+                            p=subprocess.run(cmd, shell=True)
+                            if p.returncode != 0:
+                                logging.error('Unable to publish the server %s' %entry.name )
+
+                except Exception as ex:
+                    logging.warning(ex)
+                    logging.warning('Some configuration info for %s_%s.cfg file are missing' %(bucket,entry.name.split('.')[0]) )
+
+            else:
+                logging.warning('The configuration file for the tarball %s is missing, please write %s_%s.cfg to manage the tarball' %(entry.name,bucket,entry.name.split('.')[0]))    
+
 
 
 
@@ -84,7 +128,7 @@ if __name__ == '__main__' :
 
     #Sync alle the repo in cvmfs stratum-0 with the s3 buckets and publish the changes 
     for bkt in bkt_names:
-        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %bkt, mode='w', encoding='utf-8', delay=True) 
+        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %bkt, mode='a', encoding='utf-8', delay=True) 
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(handler)
         tr = transaction(bkt)
@@ -95,35 +139,13 @@ if __name__ == '__main__' :
             sync_repo(bkt)
             publish(bkt)
 
-            #Check if in the cvmfs repo there is a tarball file 
-            for entry in os.scandir('/cvmfs/%s.infn.it' %bkt) :
+    #Software distribution 
+    for bkt in bkt_names:
+        handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %bkt, mode='a', encoding='utf-8', delay=True) 
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        root_logger.addHandler(handler)
+        distribute_software(bkt)
+    
 
-                if entry.name.endswith('.tar') :
-
-                    #Check if the there is the correspondend configuration file and in case write the error log 
-                    if '%s_%s.cfg' % (bkt,entry.name.split('.')[0]) in os.listdir('/cvmfs/%s.infn.it' %bkt):
-                        #Check if there are the correct variables
-                        config.read('/cvmfs/%s.infn.it/%s_%s.cfg' % (bkt,bkt,entry.name.split('.')[0]))
-                        try:
-                            publish = config.get('default','publish')
-                            base_dir = config.get('default','base_dir')
-                            #Check if the software need to be distributed 
-                            if publish == 'yes':
-                                #Check if it is not already been distributed 
-                                if '%s/' %entry.name.split('.')[0] not in  os.listdir('/cvmfs/%s.infn.it' %bkt) :
-                                    #Distribute the software using the native function of cvmfs (cvmfs_server ingest)
-                                    cmd='cvmfs_server ingest --tar_file /cvmfs/%s.infn.it/%s --base_dir %s/ %s.infn.it' %(bkt,entry.name,base_dir,bkt)
-                                    p=subprocess.run(cmd, shell=True)
-                                    if p.returncode != 0:
-                                        logging.error('Unable to publish the server %s' %entry.name )
-
-                        except Exception as ex:
-                            logging.warning(ex)
-                            logging.warning('Some configuration info for %s_%s.cfg file are missing' %(bkt,entry.name.split('.')[0]) )
-                    
-                    else:
-                        logging.warning('The configuration file for the tarball %s is missing, please write %s_%s.cfg to manage the tarball' %(entry.name,bkt,entry.name.split('.')[0]))
-            
-         
     end_time = time.time()
     print("Execution time:", end_time - start_time, "seconds")
