@@ -46,7 +46,7 @@ def sync_repo(bucket):
 
     '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
 
-    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket,bucket) #--delete-removed options 
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) #--delete-removed options 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Synchronization not succeded\n', p.returncode)
