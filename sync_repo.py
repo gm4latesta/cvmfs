@@ -74,29 +74,19 @@ def distribute_software(bucket):
         and published in the specififed 'base_dir' variable'''
 
     for entry in os.scandir('/cvmfs/%s.infn.it' %bucket) :
-        if not entry.name.endswith('.tar') : #or '%s_%s.cfg' % (bucket,entry.name.split('.')[0]) not in os.listdir('/cvmfs/%s.infn.it' %bucket):
+        if not entry.name.endswith('.tar') : 
             continue 
-            
-        print(entry.name)
-        input()
 
         if '%s_%s.cfg' % (bucket,entry.name.split('.')[0]) not in os.listdir('/cvmfs/%s.infn.it' %bucket):
             logging.warning('The configuration file for the tarball %s is missing, please write %s_%s.cfg to manage the tarball' %(entry.name,bucket,entry.name.split('.')[0])) 
             continue    
     
-        print('%s_%s.cfg' % (bucket,entry.name.split('.')[0]))
-        input()
-
         if '%s' %entry.name.split('.')[0] not in os.listdir('/cvmfs/%s.infn.it' %bucket):
             config.read('/cvmfs/%s.infn.it/%s_%s.cfg' % (bucket,bucket,entry.name.split('.')[0]))
             try:
                 publish = config.get('default','publish')
                 base_dir = config.get('default','base_dir')
-                print(publish,base_dir)
-                input()
                 if publish == 'yes':
-                    print('The software will be distributed..')
-                    input()
                     cmd='cvmfs_server ingest --tar_file /cvmfs/%s.infn.it/%s --base_dir %s/ %s.infn.it' %(bucket,entry.name,base_dir,bucket)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
@@ -104,10 +94,11 @@ def distribute_software(bucket):
             except Exception as ex:
                 logging.warning('Some configuration info for %s_%s.cfg file are missing\n' %(bucket,entry.name.split('.')[0]), ex )
 
-
         #else:
-            #Se è stato spacchettato controlla le date (se tar più recente dello spacchettato allora ridistribuisci) 
-            #data in bit (se è più grande è più nuovo --> controlla la data della directory  ) --> se non funziona la data usa md5sum e salvalo in un file 
+            #Prova con, se è stato spacchettato controlla le date (se tar più recente dello spacchettato allora ridistribuisci) 
+            #data in bit (se è più grande è più nuovo --> controlla la data della directory  ) 
+            #se non funziona la data usa md5sum e salvalo in un file 
+            #Devo salvare md5sum del tar appena viene scaricato e poi confrontarlo ogni volta per valutare se ridstribuirlo o no
 
 
 if __name__ == '__main__' :
