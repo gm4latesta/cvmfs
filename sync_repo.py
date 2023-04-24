@@ -44,12 +44,20 @@ def transaction(bucket):
 
 def sync_repo(bucket):
 
-    '''This functions syncronizes the repo in stratum-0 with the s3 bucket'''
+    '''This functions syncronizes the cvmfs/ are in the s3 bucket with the repo in stratum-0,
+        and the cvmfs/software are in s3 bucket with /tmp/sofwtare directory in stratum 0. '''
 
-    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) #--delete-removed options 
+    #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude 'software/*' s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) #--delete-removed options 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-	    logging.warning('Synchronization not succeded\n', p.returncode)
+	    logging.warning('Bucket and cvmfs repo synchronization not succeded\n', p.returncode)
+
+    #Synchronization of the cvmfs/software/ area of the bucket with /tmp/software directory of stratum 0 
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/software/ /tmp/software/" % bucket
+    p=subprocess.run(cmd, shell=True)
+    if p.returncode != 0:
+	    logging.warning('Bucket and /tmp/software dir in stratum 0 synchronization not succeded\n', p.returncode)
 
 
 def publish(bucket):
@@ -69,36 +77,27 @@ def publish(bucket):
 
 def distribute_software(bucket):
 
-    '''This function looks for a tar file in the repository and for the correspondent cfg file.
-        If the users use the value 'yes' for the variable 'publish', the software will be distributed 
-        and published in the specififed 'base_dir' variable'''
+    '''This function looks for the software.cfg file in the repository, scans all its sections 
+        and for each software it look at the 'publish' variable. If the value is 'yes', it takes the software in .tar format
+        from /tmp/software directory and distributes it using cvmfs method 'cvmfs_server ingest' in the
+        directory specified in the 'base_dir' variable of the .cfg file'''
 
-    for entry in os.scandir('/cvmfs/%s.infn.it' %bucket) :
-        if not entry.name.endswith('.tar') : 
-            continue 
+    if 'software.cfg' in os.listdir('/cvmfs/%s.infn.it' %bucket):
+        config.read('/cvmfs/%s.infn.it/software.cfg' %bucket)
 
-        if '%s_%s.cfg' % (bucket,entry.name.split('.')[0]) not in os.listdir('/cvmfs/%s.infn.it' %bucket):
-            logging.warning('The configuration file for the tarball %s is missing, please write %s_%s.cfg to manage the tarball' %(entry.name,bucket,entry.name.split('.')[0])) 
-            continue    
-    
-        if '%s' %entry.name.split('.')[0] not in os.listdir('/cvmfs/%s.infn.it' %bucket):
-            config.read('/cvmfs/%s.infn.it/%s_%s.cfg' % (bucket,bucket,entry.name.split('.')[0]))
-            try:
-                publish = config.get('default','publish')
-                base_dir = config.get('default','base_dir')
+        for section in config.sections():
+            try: 
+                publish = config.get(section,'publish')
+                base_dir = config.get(section,'base_dir')
                 if publish == 'yes':
-                    cmd='cvmfs_server ingest --tar_file /cvmfs/%s.infn.it/%s --base_dir %s/ %s.infn.it' %(bucket,entry.name,base_dir,bucket)
+                    cmd = 'cvmfs_server ingest --tar_file /tmp/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
-                        logging.error('Unable to publish the server %s' %entry.name )
-            except Exception as ex:
-                logging.warning('Some configuration info for %s_%s.cfg file are missing\n' %(bucket,entry.name.split('.')[0]), ex )
+                        logging.error('Unable to publish the server %s' %section )
 
-        #else:
-            #Prova con, se è stato spacchettato controlla le date (se tar più recente dello spacchettato allora ridistribuisci) 
-            #data in bit (se è più grande è più nuovo --> controlla la data della directory  ) 
-            #se non funziona la data usa md5sum e salvalo in un file 
-            #Devo salvare md5sum del tar appena viene scaricato e poi confrontarlo ogni volta per valutare se ridstribuirlo o no
+            except Exception as ex:
+                logging.warning('Missing configuration info for %s in software.cfg\n' %section, ex )
+
 
 
 if __name__ == '__main__' :
