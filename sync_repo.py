@@ -10,7 +10,7 @@ import os
 
 def get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL) :
 
-    '''This functions returns the names of the buckets with cvmfs/ area and the credentials needed to download their content  '''
+    '''This function returns the names of the buckets with cvmfs/ area and the credentials needed to download their content  '''
     
     s3 = boto3.client('s3', endpoint_url=ENDPOINT_URL, 
                         config=boto3.session.Config(signature_version='s3v4'),
@@ -44,20 +44,21 @@ def transaction(bucket):
 
 def sync_repo(bucket):
 
-    '''This functions syncronizes the cvmfs/ are in the s3 bucket with the repo in stratum-0,
-        and the cvmfs/software are in s3 bucket with /tmp/sofwtare directory in stratum 0. '''
+    '''This function syncronizes the cvmfs/ area in the s3 bucket with the repo in stratum-0,
+        and the cvmfs/tarballs_to_be_extracted area in s3 bucket with /tmp/sofwtare directory in stratum 0. '''
 
     #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
-    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude 'software/*' s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) #--delete-removed options 
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude 'tarballs_to_be_extracted/*' s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) #--delete-removed options 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Bucket and cvmfs repo synchronization not succeded\n', p.returncode)
 
-    #Synchronization of the cvmfs/software/ area of the bucket with /tmp/software directory of stratum 0 
-    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync s3://%s/cvmfs/software/ /tmp/software/" % bucket
+    #Synchronization of the cvmfs/tarballs_to_be_extracted/ area of the bucket with /tmp/software directory of stratum 0 
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude '*' --include '*.tar' s3://%s/cvmfs/tarballs_to_be_extracted/ /tmp/software/" % bucket
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Bucket and /tmp/software dir in stratum 0 synchronization not succeded\n', p.returncode)
+
 
 
 def publish(bucket):
@@ -86,17 +87,18 @@ def distribute_software(bucket):
         config.read('/cvmfs/%s.infn.it/software.cfg' %bucket)
 
         for section in config.sections():
-            try: 
-                publish = config.get(section,'publish')
-                base_dir = config.get(section,'base_dir')
-                if publish == 'yes':
-                    cmd = 'cvmfs_server ingest --tar_file /tmp/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
-                    p=subprocess.run(cmd, shell=True)
-                    if p.returncode != 0:
-                        logging.error('Unable to publish the server %s' %section )
+            if section not in os.listdir('/cvmfs/%s.infn.it' %bucket):
+                try: 
+                    publish = config.get(section,'publish')
+                    base_dir = config.get(section,'base_dir')
+                    if publish == 'yes':
+                        cmd = 'cvmfs_server ingest --tar_file /tmp/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
+                        p=subprocess.run(cmd, shell=True)
+                        if p.returncode != 0:
+                            logging.error('Unable to publish the server %s' %section )
 
-            except Exception as ex:
-                logging.warning('Missing configuration info for %s in software.cfg\n' %section, ex )
+                except Exception as ex:
+                    logging.warning('Missing configuration info for %s in software.cfg\n' %section, ex )
 
 
 
