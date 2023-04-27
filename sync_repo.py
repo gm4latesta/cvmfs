@@ -40,7 +40,17 @@ def transaction(bucket):
     if p.returncode != 0:
 	    return False 
     return True 
-        
+
+
+def mkdir(bucket):
+
+    '''This function creates the folder /cvmfs/<username>.infn.it/tarballs_to_be_extracted if it does not exist'''
+
+    if 'tarballs_to_be_extracted' not in os.listdir('/cvmfs/%s.infn.it' %bucket):
+        cmd = 'mkdir /cvmfs/%s.infn.it/tarballs_to_be_extracted' %bucket
+        p=subprocess.run(cmd, shell=True)
+    return
+
 
 def sync_repo(bucket):
 
@@ -48,7 +58,7 @@ def sync_repo(bucket):
         and the cvmfs/tarballs_to_be_extracted area in s3 bucket with /tmp/sofwtare directory in stratum 0. '''
 
     #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
-    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude 'tarballs_to_be_extracted/*' s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) #--delete-removed options 
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude 'tarballs_to_be_extracted/*' --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Bucket and cvmfs repo synchronization not succeded\n', p.returncode)
@@ -58,7 +68,6 @@ def sync_repo(bucket):
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Bucket and /tmp/software dir in stratum 0 synchronization not succeded\n', p.returncode)
-
 
 
 def publish(bucket):
@@ -74,6 +83,8 @@ def publish(bucket):
         p=subprocess.run(cmd, shell=True)
         if p.returncode != 0:
     	    logging.error('Unable to abort, the repo remains in transaction\n' , p.returncode)
+        return False 
+    return True 
         
 
 def distribute_software(bucket):
@@ -83,22 +94,42 @@ def distribute_software(bucket):
         from /tmp/software directory and distributes it using cvmfs method 'cvmfs_server ingest' in the
         directory specified in the 'base_dir' variable of the .cfg file'''
 
-    if 'software.cfg' in os.listdir('/cvmfs/%s.infn.it' %bucket):
-        config.read('/cvmfs/%s.infn.it/software.cfg' %bucket)
+    if '%s_software.cfg' %bucket in os.listdir('/home/ubuntu/software'):
+        config.read('/home/ubuntu/software/%s_software.cfg' %bucket)
 
         for section in config.sections():
-            if section not in os.listdir('/cvmfs/%s.infn.it' %bucket):
-                try: 
-                    publish = config.get(section,'publish')
-                    base_dir = config.get(section,'base_dir')
-                    if publish == 'yes':
-                        cmd = 'cvmfs_server ingest --tar_file /tmp/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
-                        p=subprocess.run(cmd, shell=True)
-                        if p.returncode != 0:
-                            logging.error('Unable to publish the server %s' %section )
 
-                except Exception as ex:
-                    logging.warning('Missing configuration info for %s in software.cfg\n' %section, ex )
+            try: 
+                base_dir = config.get(section,'base_dir')
+                new = config.get(section, 'new')
+
+                #The software has never be distributed 
+                if section not in os.listdir('/cvmfs/%s.infn.it/tarballs_to_be_extracted' %bucket):
+                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
+                    p=subprocess.run(cmd, shell=True)
+                    if p.returncode != 0:
+                        logging.error('Unable to publish the server %s' %section )
+
+                #The software has already been distributed but there is a new version, the previous one is renamed as _old
+                elif section in os.listdir('/cvmfs/%s.infn.it/tarballs_to_be_extracted' %bucket) and new==True:
+                    tr=transaction(bucket)
+                    if tr==False:
+                        continue 
+                    cmd = 'mv /cvmfs/%s.infn.it/tarballs_to_be_extracted/%s /cvmfs/%s.infn.it/tarballs_to_be_extracted/%s_old' %(bucket,section,section)
+                    p=subprocess.run(cmd, shell=True)
+                    if p.returncode != 0:
+                        logging.error(p.returncode)
+                    pb=publish(bucket)
+                    if pb == False:
+                        continue 
+                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
+                    p=subprocess.run(cmd, shell=True)
+                    if p.returncode != 0:
+                        logging.error('Unable to publish the server %s' %section )
+                    
+            except Exception as ex:
+                logging.warning('Missing configuration info for %s in software.cfg\n' %section, ex )
+            
 
 
 
@@ -128,7 +159,7 @@ if __name__ == '__main__' :
         if tr==False:
             logging.error('Unable to start transaction...') 
             continue 
-        
+        mkdir(bkt)
         sync_repo(bkt)
         publish(bkt)
         #Software distribution 
