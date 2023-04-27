@@ -105,7 +105,7 @@ def distribute_software(bucket):
 
                 #The software has never be distributed 
                 if section not in os.listdir('/cvmfs/%s.infn.it/tarballs_to_be_extracted' %bucket):
-                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
+                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir tarballs_to_be_extracted/%s/ %s.infn.it' %(section, base_dir, bucket)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
                         logging.error('Unable to publish the server %s' %section )
@@ -115,20 +115,20 @@ def distribute_software(bucket):
                     tr=transaction(bucket)
                     if tr==False:
                         continue 
-                    cmd = 'mv /cvmfs/%s.infn.it/tarballs_to_be_extracted/%s /cvmfs/%s.infn.it/tarballs_to_be_extracted/%s_old' %(bucket,section,section)
+                    cmd = 'mv /cvmfs/%s.infn.it/tarballs_to_be_extracted/%s /cvmfs/%s.infn.it/tarballs_to_be_extracted/%s_old' %(bucket,section,bucket,section)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
                         logging.error(p.returncode)
                     pb=publish(bucket)
                     if pb == False:
                         continue 
-                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir %s/ %s.infn.it' %(section, base_dir, bucket)
+                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir tarballs_to_be_extracted/%s/ %s.infn.it' %(section, base_dir, bucket)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
                         logging.error('Unable to publish the server %s' %section )
                     
             except Exception as ex:
-                logging.warning('Missing configuration info for %s in software.cfg\n' %section, ex )
+                logging.warning('Missing configuration info for %s in %s_software.cfg\n' %(section,bucket) , ex )
             
 
 
