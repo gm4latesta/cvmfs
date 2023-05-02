@@ -47,8 +47,7 @@ def mkdir(bucket):
     '''This function creates the folder /cvmfs/<username>.infn.it/software if it does not exist'''
 
     if 'software' not in os.listdir('/cvmfs/%s.infn.it' %bucket):
-        cmd = 'mkdir /cvmfs/%s.infn.it/software' %bucket
-        p=subprocess.run(cmd, shell=True)
+        os.mkdir('/cvmfs/%s.infn.it/software' %bucket)
     return
 
 
@@ -95,6 +94,7 @@ def distribute_software(bucket):
         directory specified in the 'base_dir' variable of the .cfg file'''
 
     if '%s_software.cfg' %bucket in os.listdir('/home/ubuntu/software'):
+        config = configparser.ConfigParser()
         config.read('/home/ubuntu/software/%s_software.cfg' %bucket)
 
         for section in config.sections():
