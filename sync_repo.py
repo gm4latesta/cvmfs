@@ -152,6 +152,13 @@ if __name__ == '__main__' :
     #Get buckets names 
     bkt_names=get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL)
 
+    #Create sofware directory in /home/ubuntu for storing .tar  and .cfg files (software to be distributed)
+    if 'software' not in os.listdir('/home/ubuntu'):
+        os.mkdir('/home/ubuntu/software')
+    #Create logs_cvmfs directory for storing logs 
+    if 'logs_cvmfs' not in os.listdir('/home/ubuntu'):
+        os.mkdir('/home/ubuntu/logs_cvmfs')
+
     #Sync alle the repo in cvmfs stratum-0 with the s3 buckets and publish the changes 
     for bkt in bkt_names:
         handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %bkt, mode='a', encoding='utf-8', delay=True) 
