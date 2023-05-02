@@ -89,9 +89,7 @@ def publish(bucket):
 def distribute_software(bucket):
 
     '''This function looks for the software.cfg file in the repository, scans all its sections 
-        and for each software it look at the 'publish' variable. If the value is 'yes', it takes the software in .tar format
-        from /home/ubuntu/software directory and distributes it using cvmfs method 'cvmfs_server ingest' in the
-        directory specified in the 'base_dir' variable of the .cfg file'''
+        and for each software it looks for the veriables needed for the distribution'''
 
     if '%s_software.cfg' %bucket in os.listdir('/home/ubuntu/software'):
         config = configparser.ConfigParser()
