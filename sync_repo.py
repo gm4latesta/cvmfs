@@ -45,7 +45,7 @@ def fill_md5(md5_dict,bucket):
             elif len(md5_dict)!=0: #if it is not, add a second value (another md5sum) to the correspondent key (tar file name)
                 md5_dict[line.split()[1].split('/')[-1]].append(line.split()[0])
         
-    os.remove('/home/ubuntu/software/%s/md5.txt')
+    os.remove('/home/ubuntu/software/%s/md5.txt' %bucket)
     return md5_dict 
             
 
@@ -54,7 +54,7 @@ def sync_sw(bucket):
     '''This function syncronizes the cvmfs/software/ folder in the s3 bucket of the user with /home/ubuntu/software
     folder in stratum 0'''
 
-    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude '*' --include '*.tar' --include '*.cfg' s3://%s/cvmfs/software/ /home/ubuntu/software/" % bucket
+    cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude '*' --include '*.tar' --include '*.cfg' --delete-removed s3://%s/cvmfs/software/ /home/ubuntu/software/%s/" % (bucket,bucket)
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Bucket and /home/ubuntu/software dir in stratum 0 synchronization not succeded\n', p.returncode)
@@ -183,7 +183,7 @@ if __name__ == '__main__' :
 
         #Create user-specific folder in /home/ubuntu/software
         if '%s' %bkt not in os.listdir('/home/ubuntu/software'):
-        os.mkdir('/home/ubuntu/software/%s' %bkt)
+            os.mkdir('/home/ubuntu/software/%s' %bkt)
 
         #Create a dictonary for comparing md5sum of all the tar files (software) uploaded by the user 
         md5_empty={}
@@ -228,8 +228,6 @@ if __name__ == '__main__' :
                 file.write('Missing base_dir variable in the configuration file (<username>_software.cfg), see documentation\n')
             publish(bkt)
 
-    #Remove .tar files from Stratum 0
-    os.system('rm /home/ubuntu/software/*.tar')
 
     end_time = time.time()
     print("Execution time:", end_time - start_time, "seconds")
