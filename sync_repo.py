@@ -30,6 +30,25 @@ def get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL) :
     return names  
 
 
+def fill_md5(md5_dict,bucket):
+
+    os.system('for tar in /home/ubuntu/software/%s/*.tar ; do md5sum "$tar" ; done >> /home/ubuntu/software/%s/md5.txt' %(bucket,bucket))
+
+    with open('/home/ubuntu/software/%s/md5.txt' %bucket , 'r') as file:
+        for line in file:             
+            if '.tar' not in line:
+                continue 
+
+            if len(md5_dict)==0: #if the dict is empty, add as key the name of the tar file and as value the correspondent md5sum
+                md5_dict[line.split()[1].split('/')[-1]]=[line.split()[0]]
+
+            elif len(md5_dict)!=0: #if it is not, add a second value (another md5sum) to the correspondent key (tar file name)
+                md5_dict[line.split()[1].split('/')[-1]].append(line.split()[0])
+        
+    os.remove('/home/ubuntu/software/%s/md5.txt')
+    return md5_dict 
+            
+
 def sync_sw(bucket):
 
     '''This function syncronizes the cvmfs/software/ folder in the s3 bucket of the user with /home/ubuntu/software
@@ -82,14 +101,14 @@ def publish(bucket):
     return True 
         
 
-def distribute_software(bucket):
+def distribute_software(bucket,md5_dict):
 
     '''This function looks for the software.cfg file in the repository, scans all its sections 
         and for each software it looks for the variable needed for the distribution'''
 
-    if '%s_software.cfg' %bucket in os.listdir('/home/ubuntu/software'):
+    if '%s_software.cfg' %bucket in os.listdir('/home/ubuntu/software/%s' %bucket):
         config = configparser.ConfigParser()
-        config.read('/home/ubuntu/software/%s_software.cfg' %bucket)
+        config.read('/home/ubuntu/software/%s/%s_software.cfg' %(bucket,bucket) )
 
         for section in config.sections():
 
@@ -98,27 +117,34 @@ def distribute_software(bucket):
 
                 #The software has never be distributed 
                 if section not in os.listdir('/cvmfs/%s.infn.it/software' %bucket):
-                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir software/%s/ %s.infn.it' %(section, base_dir, bucket)
+                    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(section, base_dir, bucket)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
                         logging.error('Unable to publish the server %s' %section )
 
-                #The software has already been distributed but there is a new version, the previous one is renamed as _old
-                #elif section in os.listdir('/cvmfs/%s.infn.it/software' %bucket) and new==True:
-                #    tr=transaction(bucket)
-                #    if tr==False:
-                #        continue 
-                #    cmd = 'mv /cvmfs/%s.infn.it/software/%s /cvmfs/%s.infn.it/software/%s_old' %(bucket,section,bucket,section)
-                #    p=subprocess.run(cmd, shell=True)
-                #    if p.returncode != 0:
-                #        logging.error(p.returncode)
-                #    pb=publish(bucket)
-                #    if pb == False:
-                #        continue 
-                #    cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s.tar --base_dir software/%s/ %s.infn.it' %(section, base_dir, bucket)
-                #    p=subprocess.run(cmd, shell=True)
-                #    if p.returncode != 0:
-                #        logging.error('Unable to publish the server %s' %section )
+                #The software has already been distributed, check at the md5sum to distribute again if there is a new version
+                else:
+                    for tar in md5_dict:
+                        if len(md5_dict[tar])==1 : #there are no md5sum to compare
+                            continue 
+                        elif md5_dict[tar][0]==md5_dict[tar][1] : #the 2 md5sum are the same, no need to distribute again
+                            continue 
+                        elif md5_dict[tar][0]!=md5_dict[tar][1] : #the 2 md5sum are different, distribute the software again adding the suffix "_old" to the old version 
+                            tr=transaction(bucket)
+                            if tr==False:
+                                continue 
+                            cmd = 'mv /cvmfs/%s.infn.it/software/%s /cvmfs/%s.infn.it/software/%s_old' %(bucket,section,bucket,section)
+                            p=subprocess.run(cmd, shell=True)
+                            if p.returncode != 0:
+                                logging.error(p.returncode)
+                            pb=publish(bucket)
+                            if pb == False:
+                                continue
+                            cmd = 'cvmfs_server ingest --tar_file /home/ubuntu/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(bucket,section, base_dir, bucket)
+                            p=subprocess.run(cmd, shell=True)
+                            if p.returncode != 0:
+                                logging.error('Unable to publish the server %s' %section )
+            
                     
             except Exception as ex:
                 return "error"
@@ -154,21 +180,37 @@ if __name__ == '__main__' :
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger= logging.getLogger()
         root_logger.addHandler(handler)
+
+        #Create user-specific folder in /home/ubuntu/software
+        if '%s' %bkt not in os.listdir('/home/ubuntu/software'):
+        os.mkdir('/home/ubuntu/software/%s' %bkt)
+
+        #Create a dictonary for comparing md5sum of all the tar files (software) uploaded by the user 
+        md5_empty={}
+        md5=fill_md5(md5_empty,bkt)
+
+        #Synchronization of the software/ folder in the user bucket with /home/ubuntu/software/<username>/ folder in stratum 0
+        sync_sw(bkt) #sync /home/ubuntu/software/<username> with s3://<username>/cvmfs/software/
+        
+        md5_final=fill_md5(md5,bkt)   
+
+        #Start transaction for the /cvmfs user repo 
         tr = transaction(bkt)
         if tr==False:
             logging.error('Unable to start transaction...') 
             continue 
         
+        #Create software/ folder in the /cvmfs user repo 
         if 'software' not in os.listdir('/cvmfs/%s.infn.it' %bkt):
             os.system('mkdir /cvmfs/%s.infn.it/software' %bkt)
 
-        #Synchronization
-        sync_sw(bkt)
+        #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt)
+        #Publish
         publish(bkt)
 
         #Software distribution 
-        sw=distribute_software(bkt)
+        sw=distribute_software(bkt,md5_final)
 
         if sw=="no cfg":
             tr=transaction(bkt)
