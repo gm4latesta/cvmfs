@@ -178,9 +178,9 @@ if __name__ == '__main__' :
         
     #Distribution of configurations, files, static libraries and software 
     for bkt in bkt_names:
+        root_logger= logging.getLogger()
         handler = logging.FileHandler('/home/ubuntu/logs_cvmfs/%s.log' %bkt, mode='a', encoding='utf-8', delay=True) 
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        root_logger= logging.getLogger()
         root_logger.addHandler(handler)
 
         #Create user folder in /home/ubuntu/software for storing tar and cfg files
@@ -205,6 +205,10 @@ if __name__ == '__main__' :
         #Create software/ folder in the /cvmfs user repo 
         if 'software' not in os.listdir('/cvmfs/%s.infn.it' %bkt):
             os.system('mkdir /cvmfs/%s.infn.it/software' %bkt)
+        
+        #Delete old info_log.txt file
+        if 'info_log.txt' in os.listdir('/cvmfs/%s.infn.it/software' %bkt):
+            os.remove('/cvmfs/%s.infn.it/software/info_log.txt' %bkt)
 
         #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt)
