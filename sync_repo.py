@@ -57,7 +57,7 @@ def sync_sw(bucket):
     cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude '*' --include '*.tar' --include '*.cfg' --delete-removed s3://%s/cvmfs/software/ /home/ubuntu/software/%s/" % (bucket,bucket)
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-	    logging.warning('Bucket and /home/ubuntu/software dir in stratum 0 synchronization not succeded\n', p.returncode)
+	    logging.warning('Bucket and /home/ubuntu/software dir in stratum 0 synchronization not succeded')
     return 
 
 
@@ -81,7 +81,7 @@ def sync_repo(bucket):
     cmd = "s3cmd -c /home/ubuntu/s3_cvmfs.cfg sync --exclude 'software/*' --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-	    logging.warning('Bucket and cvmfs repo synchronization not succeded\n', p.returncode)    
+	    logging.warning('Bucket and cvmfs repo synchronization not succeded')    
     return
 
 
@@ -93,11 +93,11 @@ def publish(bucket):
     cmd= 'cvmfs_server publish %s.infn.it' %bucket
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-        logging.warning('Unable to publish, aborting transaction...\n' , p.returncode)
+        logging.warning('Unable to publish, aborting transaction...' )
         cmd='cvmfs_server abort -f %s.infn.it' %bucket
         p=subprocess.run(cmd, shell=True)
         if p.returncode != 0:
-    	    logging.error('Unable to abort, the repo remains in transaction\n' , p.returncode)
+    	    logging.error('Unable to abort, the repo remains in transaction' )
         return False 
     return True 
         
@@ -137,7 +137,7 @@ def distribute_software(bucket,md5_dict):
                             cmd = 'mv /cvmfs/%s.infn.it/software/%s /cvmfs/%s.infn.it/software/%s_old' %(bucket, base_dir, bucket, base_dir)
                             p=subprocess.run(cmd, shell=True)
                             if p.returncode != 0:
-                                logging.error(p.returncode)
+                                logging.error('Impossible to change name of the base_dir in which the software is distributed')
                             pb=publish(bucket)
                             if pb == False:
                                 continue
