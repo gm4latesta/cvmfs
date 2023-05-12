@@ -31,9 +31,9 @@ def get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL) :
 
 def fill_md5(md5_dict,bucket):
 
-    subprocess.run('for tar in /root/software/%s/*.tar ; do md5sum "$tar" ; done >> /root/software/%s/md5.txt' %(bucket,bucket) , shell=True)
+    subprocess.run('for tar in /home/centos/software/%s/*.tar ; do md5sum "$tar" ; done >> /home/centos/software/%s/md5.txt' %(bucket,bucket) , shell=True)
 
-    with open('/root/software/%s/md5.txt' %bucket , 'r') as file:
+    with open('/home/centos/software/%s/md5.txt' %bucket , 'r') as file:
         for line in file:             
             if '.tar' not in line:
                 continue 
@@ -44,19 +44,19 @@ def fill_md5(md5_dict,bucket):
             elif len(md5_dict)!=0: #if it is not, add a second value (another md5sum) to the correspondent key (tar file name)
                 md5_dict[line.split()[1].split('/')[-1]].append(line.split()[0])
         
-    os.remove('/root/software/%s/md5.txt' %bucket)
+    os.remove('/home/centos/software/%s/md5.txt' %bucket)
     return md5_dict 
 
 
 def sync_sw(bucket):
 
-    '''This function syncronizes the cvmfs/software/ folder in the s3 bucket of the user with /root/software/<username>/
+    '''This function syncronizes the cvmfs/software/ folder in the s3 bucket of the user with /home/centos/software/<username>/
     folder in stratum 0'''
 
-    cmd = "s3cmd -c /root/s3_cvmfs.cfg sync --exclude '*' --include '*.tar' --include '*.cfg' --delete-removed s3://%s/cvmfs/software/ /root/software/%s/" % (bucket,bucket)
+    cmd = "s3cmd -c /home/centos/s3_cvmfs.cfg sync --exclude '*' --include '*.tar' --include '*.cfg' --delete-removed s3://%s/cvmfs/software/ /home/centos/software/%s/" % (bucket,bucket)
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
-	    logging.warning('Bucket and /root/software dir in stratum 0 synchronization not succeded')
+	    logging.warning('Bucket and /home/centos/software dir in stratum 0 synchronization not succeded')
     return 
 
 
@@ -77,7 +77,7 @@ def sync_repo(bucket):
     '''This function syncronizes the cvmfs/ folder in the s3 bucket with the repo in stratum-0'''
 
     #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
-    cmd = "s3cmd -c /root/s3_cvmfs.cfg sync --exclude 'software/*' --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) 
+    cmd = "s3cmd -c /home/centos/s3_cvmfs.cfg sync --exclude 'software/*' --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (bucket,bucket) 
     p=subprocess.run(cmd, shell=True)
     if p.returncode != 0:
 	    logging.warning('Bucket and cvmfs repo synchronization not succeded')    
@@ -106,9 +106,9 @@ def distribute_software(bucket,md5_dict):
     '''This function looks for the software.cfg file in the repository, scans all its sections 
         and for each software it looks for the md5sum and variable needed for the distribution'''
 
-    if '%s_software.cfg' %bucket in os.listdir('/root/software/%s' %bucket):
+    if '%s_software.cfg' %bucket in os.listdir('/home/centos/software/%s' %bucket):
         config = configparser.ConfigParser()
-        config.read('/root/software/%s/%s_software.cfg' %(bucket,bucket) )
+        config.read('/home/centos/software/%s/%s_software.cfg' %(bucket,bucket) )
 
         for section in config.sections():
 
@@ -117,7 +117,7 @@ def distribute_software(bucket,md5_dict):
 
                 #The software has never be distributed 
                 if base_dir not in os.listdir('/cvmfs/%s.infn.it/software' %bucket):
-                    cmd = 'cvmfs_server ingest --tar_file /root/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(bucket, section, base_dir, bucket)
+                    cmd = 'cvmfs_server ingest --tar_file /home/centos/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(bucket, section, base_dir, bucket)
                     p=subprocess.run(cmd, shell=True)
                     if p.returncode != 0:
                         logging.error('Unable to publish the server %s' %section )
@@ -140,7 +140,7 @@ def distribute_software(bucket,md5_dict):
                             pb=publish(bucket)
                             if pb == False:
                                 continue
-                            cmd = 'cvmfs_server ingest --tar_file /root/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(bucket, section, base_dir, bucket)
+                            cmd = 'cvmfs_server ingest --tar_file /home/centos/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(bucket, section, base_dir, bucket)
                             p=subprocess.run(cmd, shell=True)
                             if p.returncode != 0:
                                 logging.error('Unable to publish the server %s' %section )
@@ -159,7 +159,7 @@ if __name__ == '__main__' :
     start_time = time.time()
 
     config = configparser.ConfigParser()
-    config.read('/root/s3_cvmfs.cfg')
+    config.read('/home/centos/s3_cvmfs.cfg')
 
     ENDPOINT_URL = config.get('database','ENDPOINT_URL')
     ACCESS_KEY = config.get('default','access_key')
@@ -168,29 +168,29 @@ if __name__ == '__main__' :
     #Get buckets names 
     bkt_names=get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL)
 
-    #Create sofware directory in /root for storing .tar  and .cfg files of the users (software to be distributed)
-    if 'software' not in os.listdir('/root'):
-        os.mkdir('/root/software')
+    #Create sofware directory in /home/centos for storing .tar  and .cfg files of the users (software to be distributed)
+    if 'software' not in os.listdir('/home/centos'):
+        os.mkdir('/home/centos/software')
     #Create logs_cvmfs directory for storing logs 
-    if 'logs_cvmfs' not in os.listdir('/root'):
-        os.mkdir('/root/logs_cvmfs')
+    if 'logs_cvmfs' not in os.listdir('/home/centos'):
+        os.mkdir('/home/centos/logs_cvmfs')
         
     #Distribution of configurations, files, static libraries and software 
     for bkt in bkt_names:
         root_logger= logging.getLogger()
-        handler = logging.FileHandler('/root/logs_cvmfs/%s.log' %bkt, mode='a', encoding='utf-8', delay=True) 
+        handler = logging.FileHandler('/home/centos/logs_cvmfs/%s.log' %bkt, mode='a', encoding='utf-8', delay=True) 
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(handler)
 
-        #Create user folder in /root/software for storing tar and cfg files
-        if '%s' %bkt not in os.listdir('/root/software'):
-            os.mkdir('/root/software/%s' %bkt)
+        #Create user folder in /home/centos/software for storing tar and cfg files
+        if '%s' %bkt not in os.listdir('/home/centos/software'):
+            os.mkdir('/home/centos/software/%s' %bkt)
 
         #Create a dictonary for comparing md5sum of all the tar files (software) uploaded by the user 
         md5_empty={}
         md5=fill_md5(md5_empty,bkt)
 
-        #Synchronization of the software/ folder in the user bucket with /root/software/<username>/ folder in stratum 0
+        #Synchronization of the software/ folder in the user bucket with /home/centos/software/<username>/ folder in stratum 0
         sync_sw(bkt) 
         
         md5_final=fill_md5(md5,bkt)   
