@@ -207,8 +207,8 @@ if __name__ == '__main__' :
             os.system('mkdir /cvmfs/%s.infn.it/software' %bkt)
         
         #Delete old info_log.txt file
-        if 'info_log.txt' in os.listdir('/cvmfs/%s.infn.it/software' %bkt):
-            os.remove('/cvmfs/%s.infn.it/software/info_log.txt' %bkt)
+        if 'info_log.txt' in os.listdir('/cvmfs/%s.infn.it' %bkt):
+            os.remove('/cvmfs/%s.infn.it/info_log.txt' %bkt)
 
         #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt)
@@ -222,7 +222,7 @@ if __name__ == '__main__' :
             tr=transaction(bkt)
             if tr==False:
                 continue 
-            with open('/cvmfs/%s.infn.it/software/info_log.txt' %bkt , 'w') as file:
+            with open('/cvmfs/%s.infn.it/info_log.txt' %bkt , 'w') as file:
                 file.write('Missing configuration file for software distribution (<username>_software.cfg), write it in the correct format if software distribution is needed\n')
             publish(bkt)
         
@@ -230,7 +230,7 @@ if __name__ == '__main__' :
             tr=transaction(bkt)
             if tr==False:
                 continue 
-            with open('/cvmfs/%s.infn.it/software/info_log.txt' %bkt , 'w') as file:
+            with open('/cvmfs/%s.infn.it/info_log.txt' %bkt , 'w') as file:
                 file.write('Missing base_dir variable in the configuration file (<username>_software.cfg), see documentation\n')
             publish(bkt)
 
