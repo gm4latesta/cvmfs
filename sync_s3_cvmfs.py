@@ -221,10 +221,6 @@ if __name__ == '__main__' :
         if 'software' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
             os.system(f'mkdir /cvmfs/{bkt}.infn.it/software')
 
-        #Delete old info_log.txt file
-        if 'info_log.txt' in os.listdir(f'/cvmfs/{bkt}.infn.it'):
-            os.remove(f'/cvmfs/{bkt}.infn.it/info_log.txt')
-
         #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt,args.o_s,args.cfg)
         #Publish
@@ -233,7 +229,7 @@ if __name__ == '__main__' :
         #Software distribution
         SW=distribute_software(bkt,md_5_final,args.o_s)
 
-        if SW=="no cfg":
+        if SW=="no cfg" and '.tar' in os.listdir(f'/home/{args.o_s}/software/{bkt}'):
             TRANSAC=transaction(bkt)
             if TRANSAC is False:
                 continue
