@@ -1,158 +1,166 @@
+"""This code implements the distribution of the bucket content of the user with the cvmfs repo"""
+
 #!/usr/bin/python3
 
 import time
-import boto3
 import subprocess
 import configparser
-import logging 
-import os 
+import logging
+import os
 import argparse
+import boto3
 
 
-def get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL) :
+def get_names(access_k,secret_k,end_url) :
 
-    '''This function returns the names of the buckets with cvmfs/ area and the credentials needed to download their content  '''
-    
-    s3 = boto3.client('s3', endpoint_url=ENDPOINT_URL, 
+    '''This function returns the names of the buckets with cvmfs/ area
+        and the credentials needed to download their content'''
+
+    s_3 = boto3.client('s3', endpoint_url=end_url,
                         config=boto3.session.Config(signature_version='s3v4'),
-                        verify=True , 
-                        aws_access_key_id=ACCESS_KEY,
-                        aws_secret_access_key=SECRET_KEY)
+                        verify=True,
+                        aws_access_key_id=access_k,
+                        aws_secret_access_key=secret_k)
 
     names=[]
-    for bkt in s3.list_buckets()['Buckets']: 
-        if 'Contents' in s3.list_objects(Bucket=bkt['Name']).keys():
-            for obj in s3.list_objects(Bucket=bkt['Name'])['Contents']:
+    for bucket in s_3.list_buckets()['Buckets']:
+        if 'Contents' in s_3.list_objects(Bucket=bucket['Name']).keys():
+            for obj in s_3.list_objects(Bucket=bucket['Name'])['Contents']:
                 if 'cvmfs/' in obj['Key']:
-                    names.append(bkt['Name'])   
+                    names.append(bucket['Name'])
                     break
-        else: continue  
+        else: continue
 
-    return names  
+    return names
 
 
-def fill_md5(md5_dict,bucket):
+def fill_md_5(md_5_dict,bucket,o_s):
 
-    subprocess.run('for tar in /home/%s/software/%s/*.tar ; do md5sum "$tar" ; done >> /home/%s/software/%s/md5.txt' %(args.os,bucket,args.os,bucket) , shell=True)
+    '''This function creates a dictory for storing md5sum'''
 
-    with open('/home/%s/software/%s/md5.txt' %(args.os,bucket) , 'r') as file:
-        for line in file:             
-            if '.tar' not in line:
-                continue 
+    proc=subprocess.run(f'for tar in /home/{o_s}/software/{bucket}/*.tar ; do md5sum "$tar" ; done',
+                     shell=True,check=False,capture_output=True)
+    list_md_5=proc.stdout.decode().split('\n')
 
-            if len(md5_dict)==0: #if the dict is empty, add as key the name of the tar file and as value the correspondent md5sum
-                md5_dict[line.split()[1].split('/')[-1]]=[line.split()[0]]
+    if len(md_5_dict)==0:
+        for tar_el in list_md_5:
+            if tar_el!='':
+                md_5_dict[tar_el.split('=')[0].split('/')[-1][:-2]]=[tar_el.split('=')[1]]
+    else:
+        for tar_el in list_md_5:
+            if tar_el!='':
+                md_5_dict[tar_el.split('=')[0].split('/')[-1][:-2]].append(tar_el.split('=')[1])
+    return md_5_dict
 
-            elif len(md5_dict)!=0: #if it is not, add a second value (another md5sum) to the correspondent key (tar file name)
-                md5_dict[line.split()[1].split('/')[-1]].append(line.split()[0])
-        
-    os.remove('/home/%s/software/%s/md5.txt' %(args.os,bucket))
-    return md5_dict 
-            
 
-def sync_sw(bucket):
+def sync_sw(bucket,o_s,cfg):
 
-    '''This function syncronizes the cvmfs/software/ folder in the s3 bucket of the user with /home/<os>/software/<username>/
-    folder in stratum 0'''
+    '''This function syncronizes the cvmfs/software/ folder in the s3 bucket of the user with
+    /home/<os>/software/<username>/ folder in stratum 0'''
 
-    cmd = "s3cmd -c /home/%s/%s sync --exclude '*' --include '*.tar' --include '*.cfg' --delete-removed s3://%s/cvmfs/software/ /home/%s/software/%s/" % (args.os,args.cfg,bucket,args.os,bucket)
-    p=subprocess.run(cmd, shell=True)
-    if p.returncode != 0:
-	    logging.warning('Bucket and /home/%s/software dir in stratum 0 synchronization not succeded' %args.os)
-    return 
+    cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude '*' --include '*.tar' --include '*.cfg' \
+        --delete-removed s3://{bucket}/cvmfs/software/ /home/{o_s}/software/{bucket}/"
+    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    if proc.returncode != 0:
+        logging.warning(proc.stderr.decode())
 
 
 def transaction(bucket):
 
     '''This function starts a transaction in the repositery in stratum-0'''
 
-    print('Starting transaction for %s.infn.it repository...' %bucket)
-    cmd = 'cvmfs_server transaction %s.infn.it'  %bucket   
-    p=subprocess.run(cmd, shell=True)
-    if p.returncode != 0:
-	    return False 
-    return True 
+    print(f'Starting transaction for {bucket}.infn.it repository...')
+    cmd = f'cvmfs_server transaction {bucket}.infn.it'
+    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    if proc.returncode != 0:
+        return False
+    return True
 
 
-def sync_repo(bucket):
+def sync_repo(bucket,o_s,cfg):
 
     '''This function syncronizes the cvmfs/ folder in the s3 bucket with the repo in stratum-0'''
 
     #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
-    cmd = "s3cmd -c /home/%s/%s sync --exclude 'software/*' --delete-removed s3://%s/cvmfs/ /cvmfs/%s.infn.it/" % (args.os,args.cfg,bucket,bucket) 
-    p=subprocess.run(cmd, shell=True)
-    if p.returncode != 0:
-	    logging.warning('Bucket and cvmfs repo synchronization not succeded')    
-    return
+    cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude 'software/*' --delete-removed \
+        s3://{bucket}/cvmfs/ /cvmfs/{bucket}.infn.it/"
+    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    if proc.returncode != 0: 
+        logging.warning(proc.stderr.decode())
 
 
 def publish(bucket):
 
-    '''This function publishes (closes a transaction) in the repositery, in case of some errors (e.g. data corruption)
-        it aborts the transaction'''
+    '''This function publishes (closes a transaction) in the repositery, in case of some errors
+    (e.g. data corruption) it aborts the transaction'''
 
-    cmd= 'cvmfs_server publish %s.infn.it' %bucket
-    p=subprocess.run(cmd, shell=True)
-    if p.returncode != 0:
-        logging.warning('Unable to publish, aborting transaction...' )
-        cmd='cvmfs_server abort -f %s.infn.it' %bucket
-        p=subprocess.run(cmd, shell=True)
-        if p.returncode != 0:
-    	    logging.error('Unable to abort, the repo remains in transaction' )
-        return False 
-    return True 
-        
+    cmd= f'cvmfs_server publish {bucket}.infn.it'
+    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    if proc.returncode != 0:
+        logging.warning('Unable to publish, aborting transaction...',proc.stderr.decode())
+        cmd=f'cvmfs_server abort -f {bucket}.infn.it'
+        proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+        if proc.returncode != 0:
+            logging.error(proc.stderr.decode())
 
-def distribute_software(bucket,md5_dict):
+        return False
+    return True
+
+
+def distribute_software(bucket,md5_dict,o_s):
 
     '''This function looks for the software.cfg file in the repository, scans all its sections 
         and for each software it looks for the md5sum and variable needed for the distribution'''
 
-    if '%s_software.cfg' %bucket in os.listdir('/home/%s/software/%s' %(args.os,bucket)):
-        config = configparser.ConfigParser()
-        config.read('/home/%s/software/%s/%s_software.cfg' %(args.os,bucket,bucket) )
+    if f'{bucket}_software.cfg' in os.listdir(f'/home/{o_s}/software/{bucket}'):
+        conf = configparser.ConfigParser()
+        conf.read(f'/home/{o_s}/software/{bucket}/{bucket}_software.cfg')
 
-        for section in config.sections():
+        for section in conf.sections():
 
-            try: 
-                base_dir = config.get(section,'base_dir')
+            try:
+                base_dir = conf.get(section,'base_dir')
 
-                #The software has never be distributed 
-                if base_dir not in os.listdir('/cvmfs/%s.infn.it/software' %bucket):
-                    cmd = 'cvmfs_server ingest --tar_file /home/%s/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(args.os, bucket, section, base_dir, bucket)
-                    p=subprocess.run(cmd, shell=True)
-                    if p.returncode != 0:
-                        logging.error('Unable to publish the server %s' %section )
+                #The software has never be distributed
+                if base_dir not in os.listdir(f'/cvmfs/{bucket}.infn.it/software'):
+                    cmd=f'cvmfs_server ingest --tar_file \
+                        /home/{o_s}/software/{bucket}/{section}.tar \
+                            --base_dir software/{base_dir}/ {bucket}.infn.it'
+                    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+                    if proc.returncode != 0:
+                        logging.error(proc.stderr.decode())
 
-                #The software has already been distributed, check at the md5sum to distribute again if there is a new version
-                elif base_dir in os.listdir('/cvmfs/%s.infn.it/software' %bucket) :
+                #The software has already been distributed, check the md5sum to distribute again
+                elif base_dir in os.listdir(f'/cvmfs/{bucket}.infn.it/software'):
                     for tar in md5_dict:
-                        if len(md5_dict[tar])==1 : #there are no md5sum to compare
-                            continue 
-                        elif md5_dict[tar][0]==md5_dict[tar][1] : #the 2 md5sum are the same, no need to distribute again
-                            continue 
-                        elif md5_dict[tar][0]!=md5_dict[tar][1] : #the 2 md5sum are different, distribute the software again adding the suffix "_old" to the previous version 
-                            tr=transaction(bucket)
-                            if tr==False:
-                                continue 
-                            cmd = 'mv /cvmfs/%s.infn.it/software/%s /cvmfs/%s.infn.it/software/%s_old' %(bucket, base_dir, bucket, base_dir)
-                            p=subprocess.run(cmd, shell=True)
-                            if p.returncode != 0:
-                                logging.error('Impossible to change name of the base_dir in which the software is distributed')
-                            pb=publish(bucket)
-                            if pb == False:
-                                continue
-                            cmd = 'cvmfs_server ingest --tar_file /home/%s/software/%s/%s.tar --base_dir software/%s/ %s.infn.it' %(args.os, bucket, section, base_dir, bucket)
-                            p=subprocess.run(cmd, shell=True)
-                            if p.returncode != 0:
-                                logging.error('Unable to publish the server %s' %section )
+                        if len(md5_dict[tar])==1: #there are no md5sum to compare
+                            continue
+                        if md5_dict[tar][0]==md5_dict[tar][1]:
+                            continue
+                        tran=transaction(bucket)
+                        if tran is False:
+                            continue
+                        cmd = f'mv /cvmfs/{bucket}.infn.it/software/{base_dir} \
+                        /cvmfs/{bucket}.infn.it/software/{base_dir}_old'
+                        proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+                        if proc.returncode != 0:
+                            logging.error(proc.stdout.decode())
+                        publ=publish(bucket)
+                        if publ is False:
+                            continue
+                        cmd = f'cvmfs_server ingest --tar_file \
+                            /home/{o_s}/software/{bucket}/{section}.tar \
+                                --base_dir software/{base_dir}/ {bucket}.infn.it'
+                        proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+                        if proc.returncode != 0:
+                            logging.error(proc.stderr.decode())
 
-                return  
-              
-            except Exception as ex:
+            except KeyError:
+                return "error"
+            except SyntaxError:
                 return "error"
     else:
-        return "no cfg" 
+        return "no cfg"
 
 
 
@@ -161,84 +169,85 @@ if __name__ == '__main__' :
     start_time = time.time()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-os', '--operating_sys', dest='os', help='operating system')
-    parser.add_argument('-cfg', '--conf_file', dest='cfg', help='configuration file for accessing storage object')
-
+    parser.add_argument('-os','--operating_sys',dest='o_s',help='operating system')
+    parser.add_argument('-cfg','--conf_file',dest='cfg',help='configuration file')
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
-    config.read('/home/%s/%s' %(args.os, args.cfg))
+    config.read(f'/home/{args.o_s}/{args.cfg}')
 
-    ENDPOINT_URL = config.get('database','ENDPOINT_URL')
-    ACCESS_KEY = config.get('default','access_key')
-    SECRET_KEY = config.get('default','secret_key')
+    endpoint_url = config.get('database','endpoint_url')
+    access_key = config.get('default','access_key')
+    secret_key = config.get('default','secret_key')
 
-    #Get buckets names 
-    bkt_names=get_names(ACCESS_KEY,SECRET_KEY,ENDPOINT_URL)
+    #Get buckets names
+    bkt_names=get_names(access_key,secret_key,endpoint_url)
 
-    #Create sofware directory in /home/<os> for storing .tar  and .cfg files of the users (software to be distributed)
-    if 'software' not in os.listdir('/home/%s' %args.os):
-        os.mkdir('/home/%s/software' %args.os)
-    #Create logs_cvmfs directory for storing logs 
-    if 'logs_cvmfs' not in os.listdir('/home/%s' %args.os):
-        os.mkdir('/home/%s/logs_cvmfs' %args.os)
-        
-    #Distribution of configurations, files, static libraries and software 
+    #Create sofware directory in /home/<os> for storing .tar  and .cfg files of the users
+    if 'software' not in os.listdir(f'/home/{args.o_s}'):
+        os.mkdir(f'/home/{args.o_s}/software')
+    #Create logs_cvmfs directory for storing logs
+    if 'logs_cvmfs' not in os.listdir(f'/home/{args.o_s}'):
+        os.mkdir(f'/home/{args.o_s}/logs_cvmfs')
+
+    #Distribution of configurations, files, static libraries and software
     for bkt in bkt_names:
         root_logger= logging.getLogger()
-        handler = logging.FileHandler('/home/%s/logs_cvmfs/%s.log' %(args.os,bkt), mode='a', encoding='utf-8', delay=True) 
+        handler = logging.FileHandler(f'/home/{args.o_s}/logs_cvmfs/{bkt}.log',
+                                      mode='a',encoding='utf-8',delay=True)
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(handler)
 
         #Create user folder in /home/<os>/software for storing tar and cfg files
-        if '%s' %bkt not in os.listdir('/home/%s/software' %args.os):
-            os.mkdir('/home/%s/software/%s' %(args.os,bkt))
+        if bkt not in os.listdir(f'/home/{args.o_s}/software'):
+            os.mkdir(f'/home/{args.o_s}/software/{bkt}')
 
-        #Create a dictonary for comparing md5sum of all the tar files (software) uploaded by the user 
-        md5_empty={}
-        md5=fill_md5(md5_empty,bkt)
+        #Create a dictonary for comparing md5sum of all the tar files uploaded by the user
+        md_5_empty={}
+        md_5=fill_md_5(md_5_empty,bkt,args.o_s)
 
-        #Synchronization of the software/ folder in the user bucket with /home/<os>/software/<username>/ folder in stratum 0
-        sync_sw(bkt) 
-        
-        md5_final=fill_md5(md5,bkt)   
+        #Synchronization of the software/ folder in the user bucket with folder in stratum 0
+        sync_sw(bkt,args.o_s,args.cfg)
 
-        #Start transaction for the /cvmfs user repo 
-        tr = transaction(bkt)
-        if tr==False:
-            logging.error('Unable to start transaction...') 
-            continue 
-        
-        #Create software/ folder in the /cvmfs user repo 
-        if 'software' not in os.listdir('/cvmfs/%s.infn.it' %bkt):
-            os.system('mkdir /cvmfs/%s.infn.it/software' %bkt)
-        
+        md_5_final=fill_md_5(md_5,bkt,args.o_s)
+
+        #Start transaction for the /cvmfs user repo
+        TRANSAC = transaction(bkt)
+        if TRANSAC is False:
+            logging.error('Unable to start transaction...')
+            continue
+
+        #Create software/ folder in the /cvmfs user repo
+        if 'software' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
+            os.system(f'mkdir /cvmfs/{bkt}.infn.it/software')
+
         #Delete old info_log.txt file
-        if 'info_log.txt' in os.listdir('/cvmfs/%s.infn.it' %bkt):
-            os.remove('/cvmfs/%s.infn.it/info_log.txt' %bkt)
+        if 'info_log.txt' in os.listdir(f'/cvmfs/{bkt}.infn.it'):
+            os.remove(f'/cvmfs/{bkt}.infn.it/info_log.txt')
 
         #Synchronization of the user bucket with the correspondent /cvmfs repo
-        sync_repo(bkt)
+        sync_repo(bkt,args.o_s,args.cfg)
         #Publish
         publish(bkt)
 
-        #Software distribution 
-        sw=distribute_software(bkt,md5_final)
+        #Software distribution
+        SW=distribute_software(bkt,md_5_final,args.o_s)
 
-        if sw=="no cfg":
-            tr=transaction(bkt)
-            if tr==False:
-                continue 
-            with open('/cvmfs/%s.infn.it/info_log.txt' %bkt , 'w') as file:
-                file.write('Missing configuration file for software distribution (<username>_software.cfg), write it in the correct format if software distribution is needed\n')
+        if SW=="no cfg":
+            TRANSAC=transaction(bkt)
+            if TRANSAC is False:
+                continue
+            with open(f'/cvmfs/{bkt}.infn.it/info_log.txt','w',encoding='utf-8') as file:
+                file.write('Missing <username>_software.cfg for software distribution. ',
+                           'Write it in the correct format if software distribution is needed\n')
             publish(bkt)
-        
-        elif sw=="error":
-            tr=transaction(bkt)
-            if tr==False:
-                continue 
-            with open('/cvmfs/%s.infn.it/info_log.txt' %bkt , 'w') as file:
-                file.write('Missing base_dir variable in the configuration file (<username>_software.cfg), see documentation\n')
+
+        elif SW=="error":
+            TRANSAC=transaction(bkt)
+            if TRANSAC is False:
+                continue
+            with open(f'/cvmfs/{bkt}.infn.it/info_log.txt','w',encoding='utf-8') as file:
+                file.write('Missing base_dir key in <username>_software.cfg, see documentation')
             publish(bkt)
 
 
