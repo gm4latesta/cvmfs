@@ -85,7 +85,7 @@ def sync_repo(bucket,o_s,cfg):
     cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude 'software/*' --delete-removed \
         s3://{bucket}/cvmfs/ /cvmfs/{bucket}.infn.it/"
     proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
-    if proc.returncode != 0: 
+    if proc.returncode != 0:
         logging.warning(proc.stderr.decode())
 
 
@@ -238,8 +238,8 @@ if __name__ == '__main__' :
             if TRANSAC is False:
                 continue
             with open(f'/cvmfs/{bkt}.infn.it/info_log.txt','w',encoding='utf-8') as file:
-                file.write('Missing <username>_software.cfg for software distribution. ',
-                           'Write it in the correct format if software distribution is needed\n')
+                file.write(f'Missing <username>_software.cfg for software distribution. \
+                           Write it in the correct format if software distribution is needed')
             publish(bkt)
 
         elif SW=="error":
