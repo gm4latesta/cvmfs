@@ -13,17 +13,11 @@ cvmfs_server publish <name_of_the_repo>
 cvmfs_server ingest --tar_file /some/path/file.tar --base_dir some/path <name_of_the_repo>
 ```
 
-### sync_gm.py
-In this script is implemeted the automatization for synchronizing my /cvmfs repo (/cvmfs/gmalatesta.infn.it/) with my bucket 
-In the automatization everything is executed by sudo with the steps written in the code. 
-With a cronjob this is repeated every hour so that the repo is kept updated. 
-
-### sync_repo.py
-In this script is implemented the automatization for synchronizing all the buckets having a cvmfs/ area with te correspondent /cvmfs repo. 
-All files excluded those in cvmfs/software/ repo are synchonized. 
-Those files (.tar) in cvmfs/software/ are downloaded in /tmp/software/ dir in Startum 0 and distributed using 'cvmfs_server ingest' according to the variables in software.cfg
+### sync_s3_cvmfs.py
+In this script is implemented the automated synchronization of all the buckets having a cvmfs/ area with the correspondent /cvmfs repo. 
+All files, excluded those in cvmfs/software/ folder of the bucket, are synchronized. 
+Those files (.tar) in cvmfs/software/ are downloaded in another directory of the Startum 0 and are distributed using 'cvmfs_server ingest' according to the variables in <username>_software.cfg
 
 ### Configuration file 
-config_write.py contains some variables needed for the synchronization, it writes a .cfg file from which these variables are extracted and used
-
-software.cfg contains different sections (each section has the software name to be distributed) with 'publish' and 'base_dir' variables needed for software publication when using 'cvmfs_server ingest'
+config_write.py contains some variables needed for the synchronization, it writes a .cfg file from which these variables are extracted and used,
+<username>_software.cfg contains different sections (each section has the software name to be distributed) with the 'base_dir' variable needed for software publication when using 'cvmfs_server ingest'.
