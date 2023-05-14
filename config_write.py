@@ -3,10 +3,10 @@ import configparser
 config = configparser.ConfigParser()
 
 config['database'] = {
-    'OIDC_PROFILE_NAME' : 'infncloud',
-    'ENDPOINT_URL' : 'https://minio.cloud.infn.it/',
-    'USER_NAME' : 'gmalatesta',
-    'HOST' : 'minio.cloud.infn.it'
+    'oidc_profile_name' : 'infncloud',
+    'endpoint_url' : 'https://minio.cloud.infn.it/',
+    'user_name' : 'gmalatesta',
+    'host' : 'minio.cloud.infn.it'
 }
 
 config['default'] = {
