@@ -1,6 +1,6 @@
-"""This code implements the distribution of the bucket content of the user with the cvmfs repo"""
-
 #!/usr/bin/python3
+
+"""This code implements the distribution of the bucket content of the user with the cvmfs repo"""
 
 import time
 import subprocess
@@ -45,11 +45,11 @@ def fill_md_5(md_5_dict,bucket,o_s):
     if len(md_5_dict)==0:
         for tar_el in list_md_5:
             if tar_el!='':
-                md_5_dict[tar_el.split('=')[0].split('/')[-1][:-2]]=[tar_el.split('=')[1]]
+                md_5_dict[tar_el.split('/')[-1]]=[tar_el.split()[0]]
     else:
         for tar_el in list_md_5:
             if tar_el!='':
-                md_5_dict[tar_el.split('=')[0].split('/')[-1][:-2]].append(tar_el.split('=')[1])
+                md_5_dict[tar_el.split('/')[-1]].append(tar_el.split()[0])
     return md_5_dict
 
 
