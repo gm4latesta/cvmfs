@@ -60,9 +60,9 @@ def sync_sw(bucket,o_s,cfg):
 
     cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude '*' --include '*.tar' --include '*.cfg' \
         --delete-removed s3://{bucket}/cvmfs/software/ /home/{o_s}/software/{bucket}/"
-    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    proc=subprocess.run(cmd,shell=True,check=False)
     if proc.returncode != 0:
-        logging.warning(proc.stderr.decode())
+        logging.warning('Not able to sync software')
 
 
 def transaction(bucket):
@@ -71,7 +71,7 @@ def transaction(bucket):
 
     print(f'Starting transaction for {bucket}.infn.it repository...')
     cmd = f'cvmfs_server transaction {bucket}.infn.it'
-    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    proc=subprocess.run(cmd,shell=True,check=False)
     if proc.returncode != 0:
         return False
     return True
@@ -84,9 +84,9 @@ def sync_repo(bucket,o_s,cfg):
     #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
     cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude 'software/*' --delete-removed \
         s3://{bucket}/cvmfs/ /cvmfs/{bucket}.infn.it/"
-    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    proc=subprocess.run(cmd,shell=True,check=False)
     if proc.returncode != 0:
-        logging.warning(proc.stderr.decode())
+        logging.warning('Not able to sync repo')
 
 
 def publish(bucket):
@@ -95,13 +95,13 @@ def publish(bucket):
     (e.g. data corruption) it aborts the transaction'''
 
     cmd= f'cvmfs_server publish {bucket}.infn.it'
-    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+    proc=subprocess.run(cmd,shell=True,check=False)
     if proc.returncode != 0:
-        logging.warning('Unable to publish, aborting transaction...',proc.stderr.decode())
+        logging.warning('Unable to publish, aborting transaction...')
         cmd=f'cvmfs_server abort -f {bucket}.infn.it'
-        proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+        proc=subprocess.run(cmd,shell=True,check=False)
         if proc.returncode != 0:
-            logging.error(proc.stderr.decode())
+            logging.error('Unable to abort, the repo remains in transaction')
 
         return False
     return True
@@ -126,9 +126,9 @@ def distribute_software(bucket,md5_dict,o_s):
                     cmd=f'cvmfs_server ingest --tar_file \
                         /home/{o_s}/software/{bucket}/{section}.tar \
                             --base_dir software/{base_dir}/ {bucket}.infn.it'
-                    proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+                    proc=subprocess.run(cmd,shell=True,check=False)
                     if proc.returncode != 0:
-                        logging.error(proc.stderr.decode())
+                        logging.error(f'Unable to publish server {section}')
 
                 #The software has already been distributed, check the md5sum to distribute again
                 elif base_dir in os.listdir(f'/cvmfs/{bucket}.infn.it/software'):
@@ -142,18 +142,18 @@ def distribute_software(bucket,md5_dict,o_s):
                             continue
                         cmd = f'mv /cvmfs/{bucket}.infn.it/software/{base_dir} \
                         /cvmfs/{bucket}.infn.it/software/{base_dir}_old'
-                        proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+                        proc=subprocess.run(cmd,shell=True,check=False)
                         if proc.returncode != 0:
-                            logging.error(proc.stdout.decode())
+                            logging.error('Unable to rename base_dir')
                         publ=publish(bucket)
                         if publ is False:
                             continue
                         cmd = f'cvmfs_server ingest --tar_file \
                             /home/{o_s}/software/{bucket}/{section}.tar \
                                 --base_dir software/{base_dir}/ {bucket}.infn.it'
-                        proc=subprocess.run(cmd,shell=True,check=False,capture_output=True)
+                        proc=subprocess.run(cmd,shell=True,check=False)
                         if proc.returncode != 0:
-                            logging.error(proc.stderr.decode())
+                            logging.error(f'Unable to distribute software {section}')
 
             except KeyError:
                 return "error"
