@@ -39,8 +39,8 @@ def fill_md_5(md_5_dict,bucket,o_s):
     '''This function creates a dictory for storing md5sum'''
 
     proc=subprocess.run(f'for tar in /home/{o_s}/software/{bucket}/*.tar ; do md5sum "$tar" ; done',
-                     shell=True,check=False,capture_output=True) 
-    #change capture_output=True with stdout=subprocess.PIPE
+                     shell=True,check=False,capture_output=True)
+    #change capture_output=True with stdout=subprocess.PIPE in centos
     list_md_5=proc.stdout.decode().split('\n')
 
     if len(md_5_dict)==0:
