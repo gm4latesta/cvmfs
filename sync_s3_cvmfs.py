@@ -40,7 +40,7 @@ def fill_md_5(md_5_dict,bucket,o_s):
 
     proc=subprocess.run(f'for tar in /home/{o_s}/software/{bucket}/*.tar ; do md5sum "$tar" ; done',
                      shell=True,check=False,capture_output=True)
-    #change capture_output=True with stdout=subprocess.PIPE previous version of python 
+    #change capture_output=True with stdout=subprocess.PIPE previous version of python
     list_md_5=proc.stdout.decode().split('\n')
 
     if len(md_5_dict)==0:
@@ -124,13 +124,14 @@ def distribute_software(bucket,md5_dict,o_s):
 
                 #The software has never be distributed
                 if base_dir not in os.listdir(f'/cvmfs/{bucket}.infn.it/software'):
+                    time.sleep(3)
                     cmd=f'cvmfs_server ingest --tar_file \
                         /home/{o_s}/software/{bucket}/{section}.tar \
                             --base_dir software/{base_dir}/ {bucket}.infn.it'
                     proc=subprocess.run(cmd,shell=True,check=False)
                     if proc.returncode != 0:
                         logging.error(f'Unable to publish server {section}')
-                    time.sleep(5)
+                    time.sleep(3)
                 #The software has already been distributed, check the md5sum to distribute again
                 elif base_dir in os.listdir(f'/cvmfs/{bucket}.infn.it/software'):
                     for tar in md5_dict:
@@ -141,24 +142,24 @@ def distribute_software(bucket,md5_dict,o_s):
                         tran=transaction(bucket)
                         if tran is False:
                             continue
-                        time.sleep(5)
+                        time.sleep(3)
                         cmd = f'mv /cvmfs/{bucket}.infn.it/software/{base_dir} \
                         /cvmfs/{bucket}.infn.it/software/{base_dir}_old'
                         proc=subprocess.run(cmd,shell=True,check=False)
                         if proc.returncode != 0:
                             logging.error('Unable to rename base_dir')
-                        time.sleep(5)
+                        time.sleep(3)
                         publ=publish(bucket)
                         if publ is False:
                             continue
-                        time.sleep(5)
+                        time.sleep(3)
                         cmd = f'cvmfs_server ingest --tar_file \
                             /home/{o_s}/software/{bucket}/{section}.tar \
                                 --base_dir software/{base_dir}/ {bucket}.infn.it'
                         proc=subprocess.run(cmd,shell=True,check=False)
                         if proc.returncode != 0:
                             logging.error(f'Unable to distribute software {section}')
-                        time.sleep(5)
+                        time.sleep(3)
 
             except KeyError:
                 return "error"
@@ -221,17 +222,17 @@ if __name__ == '__main__' :
         if TRANSAC is False:
             logging.error('Unable to start transaction...')
             continue
-        time.sleep(5)
+        time.sleep(3)
         #Create software/ folder in the /cvmfs user repo
         if 'software' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
             os.system(f'mkdir /cvmfs/{bkt}.infn.it/software')
 
         #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt,args.o_s,args.cfg)
-        time.sleep(5)
+        time.sleep(3)
         #Publish
         publish(bkt)
-        time.sleep(5)
+        time.sleep(3)
         #Software distribution
         SW=distribute_software(bkt,md_5_final,args.o_s)
 
@@ -239,23 +240,23 @@ if __name__ == '__main__' :
             TRANSAC=transaction(bkt)
             if TRANSAC is False:
                 continue
-            time.sleep(5)
+            time.sleep(3)
             with open(f'/cvmfs/{bkt}.infn.it/info_log.txt','w',encoding='utf-8') as file:
                 file.write(f'Missing <username>_software.cfg for software distribution. \
                            Write it in the correct format if software distribution is needed')
-            time.sleep(5)
+            time.sleep(3)
             publish(bkt)
-            time.sleep(5)
+            time.sleep(3)
         elif SW=="error":
             TRANSAC=transaction(bkt)
             if TRANSAC is False:
                 continue
-            time.sleep(5)
+            time.sleep(3)
             with open(f'/cvmfs/{bkt}.infn.it/info_log.txt','w',encoding='utf-8') as file:
                 file.write('Missing base_dir key in <username>_software.cfg, see documentation')
-            time.sleep(5)
+            time.sleep(3)
             publish(bkt)
-            time.sleep(5)
+            time.sleep(3)
 
 
     end_time = time.time()
