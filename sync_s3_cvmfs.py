@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/bin/python3.7
 
 """This code implements the distribution of the bucket content of the user with the cvmfs repo"""
 
@@ -39,7 +39,7 @@ def fill_md_5(md_5_dict,bucket,o_s):
     '''This function creates a dictory for storing md5sum'''
 
     proc=subprocess.run(f'for tar in /home/{o_s}/software/{bucket}/*.tar ; do md5sum "$tar" ; done',
-                     shell=True,check=False,capture_output=True)
+                     shell=True,check=False,stdout=subprocess.PIPE)
     #change capture_output=True with stdout=subprocess.PIPE previous version of python
     list_md_5=proc.stdout.decode().split('\n')
 
@@ -88,6 +88,18 @@ def sync_repo(bucket,o_s,cfg):
     proc=subprocess.run(cmd,shell=True,check=False)
     if proc.returncode != 0:
         logging.warning('Not able to sync repo')
+
+
+def extract(bucket):
+
+    '''This function extracts all tar files, uploaded in cvmfs/ folder of the bucket,
+    in /cvmfs/<username>.infn.it/extracted/ folder of the CVMFS repo'''
+
+    for tar in os.listdir(f'/cvmfs/{bkt}.infn.it'):
+        if not tar.endswith('.tar'):
+            continue
+        cmd= f'tar -xvf {tar} -C /cvmfs/{bkt}.infn.it/extracted'
+        subprocess.run(cmd,shell=True,check=False)
 
 
 def publish(bucket):
@@ -226,9 +238,15 @@ if __name__ == '__main__' :
         #Create software/ folder in the /cvmfs user repo
         if 'software' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
             os.system(f'mkdir /cvmfs/{bkt}.infn.it/software')
+        #Create extracted/ folder in /cvmfs user repo
+        if 'extracted' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
+            os.system(f'mkdir /cvmfs/{bkt}.infn.it/extracted')
 
         #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt,args.o_s,args.cfg)
+        time.sleep(3)
+        #Extract tar files
+        extract(bkt)
         time.sleep(3)
         #Publish
         publish(bkt)
