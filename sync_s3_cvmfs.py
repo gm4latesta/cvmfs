@@ -83,23 +83,11 @@ def sync_repo(bucket,o_s,cfg):
     '''This function syncronizes the cvmfs/ folder in the s3 bucket with the repo in stratum-0'''
 
     #Synchronization of the cvmfs/ area of the bucket with the /cvmfs repo
-    cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude 'software/*' --exclude 'extracted/*' \
+    cmd = f"s3cmd -c /home/{o_s}/{cfg} sync --exclude 'software/*' \
         --delete-removed s3://{bucket}/cvmfs/ /cvmfs/{bucket}.infn.it/"
     proc=subprocess.run(cmd,shell=True,check=False)
     if proc.returncode != 0:
         logging.warning('Not able to sync repo')
-
-
-def extract(bucket):
-
-    '''This function extracts all tar files, uploaded in cvmfs/ folder of the bucket,
-    in /cvmfs/<username>.infn.it/extracted/ folder of the CVMFS repo'''
-
-    for tar in os.listdir(f'/cvmfs/{bucket}.infn.it'):
-        if not tar.endswith('.tar'):
-            continue
-        cmd= f'tar -xf /cvmfs/{bucket}.infn.it/{tar} -C /cvmfs/{bucket}.infn.it/extracted'
-        subprocess.run(cmd,shell=True,check=False)
 
 
 def publish(bucket):
@@ -238,15 +226,9 @@ if __name__ == '__main__' :
         #Create software/ folder in the /cvmfs user repo
         if 'software' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
             os.system(f'mkdir /cvmfs/{bkt}.infn.it/software')
-        #Create extracted/ folder in /cvmfs user repo
-        if 'extracted' not in os.listdir(f'/cvmfs/{bkt}.infn.it'):
-            os.system(f'mkdir /cvmfs/{bkt}.infn.it/extracted')
 
         #Synchronization of the user bucket with the correspondent /cvmfs repo
         sync_repo(bkt,args.o_s,args.cfg)
-        time.sleep(3)
-        #Extract tar files
-        extract(bkt)
         time.sleep(3)
         #Publish
         publish(bkt)
