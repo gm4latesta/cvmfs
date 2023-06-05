@@ -1,4 +1,4 @@
-#Get operating system 
+#Get operating system
 get_os() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -22,23 +22,26 @@ echo "Operating system: $OS"
 
 if [[ "$OS" == "centos" ]]; then
     packages=("tcsh" "gcc" "gcc-gfortran" "gcc-c++")
+    for package in "${packages[@]}"; do
+        if dpkg-query -W -f='${Status}\n' $package 2>/dev/null | grep -q "install"; then
+            echo "$package not installed. Starting installation..."
+            sudo yum install -y $package
+        else
+            echo "$package already installed. Nothing to do"
+        fi
+    done
 elif [[ "$OS" == "ubuntu" ]]; then
     packages=("tcsh" "gcc" "gfortran" "g++")
+    for package in "${packages[@]}"; do
+        package_status=$(dpkg-query -W -f='${Status}\n' $package 2>/dev/null)
+        if echo "$package_status" | grep -q "install ok installed"; then
+            echo "$package already installed. Nothing to do"
+        else
+            echo "$package not installed. Starting installation..."
+            sudo apt-get install -y $package
+        fi
+    done
 else
     echo "Operating system not supported"
     exit 1
 fi
-
-#Install needed packages according to the operating system
-for package in "${packages[@]}"; do
-    if dpkg-query -W -f='${Status}\n' $package 2>/dev/null | grep -q "install"; then
-        echo "$package not installed. Starting installation..."
-#        if [[ "$OS" == "centos" ]]; then
-#            sudo yum install -y $package
-#        elif [[ "$OS" == "ubuntu" ]]; then
-#            sudo apt-get install -y $package
-#        fi
-    else
-        echo "$package already installed. Nothing to do"
-    fi
-done
