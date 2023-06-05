@@ -21,3 +21,6 @@ Those files (.tar) in cvmfs/software/ are downloaded in another directory of the
 ### Configuration file 
 config_write.py contains some variables needed for the synchronization, it writes a .cfg file from which these variables are extracted and used,
 <username>_software.cfg contains different sections (each section has the software name to be distributed) with the 'base_dir' variable needed for software publication when using 'cvmfs_server ingest'.
+  
+### Bioinformatics application
+HADDOCK 3 is the bioinformatic application to be distributed (it requires also CNS). compiled_haddock.tar and compiled_cns.tar are the archive of the 2 compiled software that once distributed have to be extracted. In order to work properly, some packages need to be installed in the machine. This can be done by running the bash script 'haddock_requirements.sh' distributed together with the 2 tarballs.   
