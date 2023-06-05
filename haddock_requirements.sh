@@ -23,7 +23,7 @@ echo "Operating system: $OS"
 if [[ "$OS" == "centos" ]]; then
     packages=("tcsh" "gcc" "gcc-gfortran" "gcc-c++")
     for package in "${packages[@]}"; do
-        if dpkg-query -W -f='${Status}\n' $package 2>/dev/null | grep -q "install"; then
+        if ! rpm -q "$package" >/dev/null 2>&1; then
             echo "$package not installed. Starting installation..."
             sudo yum install -y $package
         else
